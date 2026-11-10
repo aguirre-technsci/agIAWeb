@@ -1,0 +1,41 @@
+plugins {
+    id 'com.android.application'
+}
+
+// A versao do GeckoView vem de fora (o build-iaweb.ps1 resolve e passa -PgeckoVersion=...).
+def geckoVersion = project.findProperty('geckoVersion')
+if (!geckoVersion) {
+    throw new GradleException("Faltou -PgeckoVersion=... (use o build-iaweb.ps1, ou veja o README.md desta pasta)")
+}
+
+android {
+    namespace = 'br.iaweb.proto'
+    compileSdk = 37       // o GeckoView 159 e o AndroidX atual exigem 36-37
+
+    defaultConfig {
+        applicationId = 'br.iaweb.proto'
+        minSdk = 26
+        targetSdk = 34    // 34 de proposito: sem borda-a-borda forcada, a tela nao precisa de ajuste de insets
+        versionCode = 1
+        versionName = '1.0'
+        ndk { abiFilters.add('arm64-v8a') }   // so arm64 (Moto G85); reduz o APK
+        buildConfigField 'String', 'GECKO_VERSION', "\"${geckoVersion}\""
+    }
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    packaging {
+        jniLibs { useLegacyPackaging = true }   // GeckoView carrega libs extraidas
+    }
+}
+
+dependencies {
+    implementation "org.mozilla.geckoview:geckoview:${geckoVersion}"
+}

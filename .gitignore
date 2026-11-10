@@ -1,0 +1,33 @@
+# --- Android / Gradle (artefatos gerados) ---
+.gradle/
+build/
+.cxx/
+captures/
+local.properties
+*.apk
+*.aab
+ANDROID/iaweb-gecko/apk/
+
+# --- assinatura: nunca versionar ---
+*.keystore
+*.jks
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+
+# --- dados pessoais: o export contem e-mails das suas contas ---
+Backup/ia-web-export*.json
+ia-web-export*.json
+
+# --- gerados em tempo de execucao pelo IA_Web.ps1 -Atalho ---
+*.vbs
+
+# --- script pessoal (outro caminho fixo, outra estrutura de pastas) ---
+organizar.ps1
+
+# --- sistema ---
+Thumbs.db
+desktop.ini
+.DS_Store
