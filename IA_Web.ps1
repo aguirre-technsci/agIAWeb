@@ -245,6 +245,8 @@ $reEmail = '^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$'
 # acabamento das janelas: barra de titulo escura (Windows 10 1809 ou mais novo; antes disso o Windows ignora), botoes e textos clicaveis que reagem ao mouse
 function NovaJanela($props) {
     $w = New-Object Windows.Forms.Form -Property $props
+    # janelas principais (navegador, IA, conta: StartPosition CenterScreen) ganham o botao de minimizar; os dialogos filhos (CenterParent) continuam modais
+    if ($props.StartPosition -eq 'CenterScreen') { $w.FormBorderStyle = 'FixedSingle'; $w.MinimizeBox = $true }
     $w.Add_HandleCreated({ try { $v = 1; if ([Dwm]::DwmSetWindowAttribute($this.Handle, 20, [ref]$v, 4) -ne 0) { [void][Dwm]::DwmSetWindowAttribute($this.Handle, 19, [ref]$v, 4) } } catch { } })
     $w
 }

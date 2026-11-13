@@ -135,6 +135,7 @@ O APK de debug usa o `debug.keystore` do usuário. Assinatura diferente obriga a
 | Apagar login sem afetar outra conta | Não testado | |
 | Gemini, DeepSeek, Perplexity, NotebookLM | Não testado | |
 | Limite na web, Próxima livre, durações sugeridas | Implementado, ainda não testado | |
+| Microfone (ditado/voz nos sites) | Implementado, ainda não testado | `PermissionDelegate` pede RECORD_AUDIO e a permissão do site; "Permitir sempre" fica guardado por domínio |
 
 Notas:
 

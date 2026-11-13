@@ -6,6 +6,7 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.graphics.drawable.ColorDrawable;
@@ -71,6 +72,7 @@ import java.util.function.Consumer;
 public class MainActivity extends Activity {
 
     private static final int REQ_IMPORT = 1;
+    private static final int REQ_MICROFONE = 2;
     private static final String TAG = "IAWEB";
     private static final int MAX_LOG = 400;
     private static final int MAX_VIVAS = 3; // sessoes mantidas em memoria; as mais antigas sao fechadas
@@ -86,6 +88,7 @@ public class MainActivity extends Activity {
     };
 
     private static GeckoRuntime runtime; // so pode existir um por processo
+    private GeckoSession.PermissionDelegate.Callback permAndroidCb; // pedido do Android (RECORD_AUDIO) esperando a resposta do usuario
 
     // dados (mesmo formato do ia-web-export.json, versao 1)
     private final List<String> contas = new ArrayList<>();
@@ -917,6 +920,63 @@ public class MainActivity extends Activity {
         return email.toLowerCase().replaceAll("[^a-z0-9]", "_");
     }
 
+    // ---------------------------------------------------------------- permissoes (microfone)
+
+    /** Microfone para ditado/voz nos sites (getUserMedia). Sem este delegate o GeckoView nao mostra nenhum pedido e o microfone fica mudo. So audio: camera nao e pedida. */
+    private final GeckoSession.PermissionDelegate permissoes = new GeckoSession.PermissionDelegate() {
+
+        // pedido do Android: "Permitir que IA Web grave audio?"
+        @Override
+        public void onAndroidPermissionsRequest(GeckoSession session, String[] permissions, Callback callback) {
+            List<String> faltam = new ArrayList<>();
+            if (permissions != null) {
+                for (String p : permissions) {
+                    if (checkSelfPermission(p) != PackageManager.PERMISSION_GRANTED) faltam.add(p);
+                }
+            }
+            if (faltam.isEmpty()) { callback.grant(); return; }
+            permAndroidCb = callback;
+            reg("PERMISSAO Android pedida: " + faltam);
+            requestPermissions(faltam.toArray(new String[0]), REQ_MICROFONE);
+        }
+
+        // pedido do site: "claude.ai quer usar o microfone"
+        @Override
+        public void onMediaPermissionRequest(GeckoSession session, String uri,
+                MediaSource[] video, MediaSource[] audio, MediaCallback callback) {
+            if (audio == null || audio.length == 0) { callback.reject(); return; }   // so camera: nao suportado
+            final String host = Uri.parse(uri).getHost() == null ? uri : Uri.parse(uri).getHost();
+            final MediaSource mic = audio[0];
+            final Set<String> ok = new HashSet<>(prefs().getStringSet("mic_ok", new HashSet<String>()));
+            if (ok.contains(host)) { callback.grant((MediaSource) null, mic); return; }
+            new AlertDialog.Builder(MainActivity.this)
+                .setTitle("Permitir microfone?")
+                .setMessage(host + " quer usar o microfone.")
+                .setPositiveButton("Permitir sempre", (d, w) -> {
+                    ok.add(host);
+                    prefs().edit().putStringSet("mic_ok", ok).apply();
+                    callback.grant((MediaSource) null, mic);
+                })
+                .setNeutralButton("So desta vez", (d, w) -> callback.grant((MediaSource) null, mic))
+                .setNegativeButton("Negar", (d, w) -> callback.reject())
+                .setOnCancelListener(d -> callback.reject())
+                .show();
+        }
+    };
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+        super.onRequestPermissionsResult(code, perms, res);
+        if (code != REQ_MICROFONE || permAndroidCb == null) return;
+        boolean ok = res.length > 0;
+        for (int r : res) if (r != PackageManager.PERMISSION_GRANTED) ok = false;
+        GeckoSession.PermissionDelegate.Callback cb = permAndroidCb;
+        permAndroidCb = null;
+        if (ok) { cb.grant(); return; }
+        cb.reject();
+        Toast.makeText(this, "Microfone negado. Libere em Configuracoes > Apps > IA Web > Permissoes.", Toast.LENGTH_LONG).show();
+    }
+
     private GeckoSession criarSessao(String email) {
         GeckoSession s = novaSessao(email, false);
         s.open(runtime);
@@ -930,6 +990,7 @@ public class MainActivity extends Activity {
             .build();
         final GeckoSession s = new GeckoSession(cfg);
         final String rot = popup ? " [popup]" : "";
+        s.setPermissionDelegate(permissoes);
 
         s.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             // window.open / target=_blank. Login Google do claude.ai usa popup que devolve o resultado
